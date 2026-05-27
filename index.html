@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>公众号发布前纠错小工具 v2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --ink: #1f2328;
+    --muted: #6a737d;
+    --line: #e6e6e3;
+    --accent: #2f6feb;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --ok: #15803d;
+    --tag-bg: #f0f1ee;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  header {
+    padding: 16px 24px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header .title h1 { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
+  header .title p { margin: 0; color: var(--muted); font-size: 12px; }
+  header .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 14px;
+    height: calc(100vh - 70px);
+    min-height: 600px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-head {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #fafaf8;
+  }
+  .panel-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .panel-head .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .panel-body { flex: 1; overflow: auto; }
+  textarea {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 14px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.75;
+    outline: none;
+    color: var(--ink);
+    background: transparent;
+  }
+  input[type=text], input[type=url] {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  input[type=text]:focus, input[type=url]:focus { border-color: var(--accent); }
+
+  button {
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+    padding: 5px 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12.5px;
+    transition: all .12s;
+    white-space: nowrap;
+  }
+  button:hover { border-color: #ccc; background: #fafafa; }
+  button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  button.primary:hover { background: #245fd1; }
+  button.ghost { background: transparent; }
+  button.danger { color: var(--danger); border-color: #fecaca; }
+  button.danger:hover { background: #fef2f2; }
+
+  .results-empty {
+    color: var(--muted);
+    padding: 32px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .summary {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    background: #fafaf8;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: var(--tag-bg);
+    color: var(--ink);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .pill.danger { background: #fee2e2; color: var(--danger); }
+  .pill.danger .dot { background: var(--danger); }
+  .pill.warn { background: #fef3c7; color: var(--warn); }
+  .pill.warn .dot { background: var(--warn); }
+  .pill.ok { background: #dcfce7; color: var(--ok); }
+  .pill.ok .dot { background: var(--ok); }
+  .pill.info { background: #dbeafe; color: var(--accent); }
+  .pill.info .dot { background: var(--accent); }
+
+  .issue-list { padding: 4px 0; }
+  .issue {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f3f3f0;
+  }
+  .issue:last-child { border-bottom: 0; }
+  .issue-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .issue-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--tag-bg); color: var(--muted); }
+  .issue-tag.danger { background: #fee2e2; color: var(--danger); }
+  .issue-tag.warn { background: #fef3c7; color: var(--warn); }
+  .issue-tag.info { background: #dbeafe; color: var(--accent); }
+  .issue-rule { font-weight: 500; font-size: 13px; }
+  .issue-snippet {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    background: #f6f6f3;
+    padding: 6px 10px;
+    border-radius: 4px;
+    word-break: break-all;
+    margin: 4px 0;
+  }
+  .issue-snippet mark { background: #fde68a; padding: 0 2px; border-radius: 2px; }
+  .issue-fix { font-size: 12px; color: var(--muted); }
+  .issue-fix b { color: var(--ok); }
+
+  /* modal */
+  .modal-mask {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 12px;
+    width: min(720px, 92vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.18);
+  }
+  .modal-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .modal-body { padding: 16px 18px; overflow: auto; flex: 1; }
+  .modal-foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; background: #fafaf8; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  .field textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12px; min-height: 80px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+
+  /* rule list in modal */
+  .rule-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .rule-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #f3f3f0;
+    font-size: 13px;
+  }
+  .rule-row:last-child { border-bottom: 0; }
+  .rule-row .rule-name { flex: 1; }
+  .rule-row .rule-name .desc { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .rule-row .rule-name .meta { color: var(--muted); font-size: 11px; margin-top: 2px; display: flex; gap: 8px; }
+  .rule-row .rule-name .meta .level { padding: 1px 6px; border-radius: 3px; background: var(--tag-bg); }
+  .rule-row .rule-name .meta .level.danger { background: #fee2e2; color: var(--danger); }
+  .rule-row .rule-name .meta .level.warn { background: #fef3c7; color: var(--warn); }
+  .rule-row .rule-name .meta .level.info { background: #dbeafe; color: var(--accent); }
+  .rule-row .rule-name .meta .type { padding: 1px 6px; border-radius: 3px; background: var(--tag-bg); color: var(--muted); }
+
+  .switch { position: relative; width: 32px; height: 18px; }
+  .switch input { display: none; }
+  .switch span {
+    display: block; width: 100%; height: 100%;
+    background: #ccc; border-radius: 999px;
+    position: relative; transition: background .15s;
+    cursor: pointer;
+  }
+  .switch span::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; background: white; border-radius: 50%;
+    transition: transform .15s;
+  }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(14px); }
+
+  .sync-bar {
+    display: flex; gap: 8px; align-items: center;
+    padding: 10px 14px; background: #f0f7ff;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+  }
+  .sync-bar input { flex: 1; }
+  .sync-status { font-size: 11px; color: var(--muted); }
+
+  .footer-hint {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    background: #fafaf8;
+  }
+
+  .input-row { display: flex; gap: 8px; align-items: center; }
+  .input-row input { flex: 1; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+    z-index: 200;
+  }
+  .toast.show { opacity: .92; }
+
+  .bookmarklet-link {
+    display: inline-block;
+    background: var(--accent);
+    color: white !important;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: grab;
+  }
+  .bookmarklet-link:hover { background: #245fd1; }
+  pre.code { background: #f6f6f3; padding: 10px; border-radius: 6px; font-size: 11px; overflow: auto; max-height: 200px; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    textarea { min-height: 280px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <h1>📰 公众号发布前纠错小工具</h1>
+    <p>支持云端规则同步 · 自定义复杂规则 · 一键 AI 兜底</p>
+  </div>
+  <div class="toolbar">
+    <button id="btnRules">⚙️ 规则管理</button>
+    <button id="btnBookmark">🔖 安装预览页书签</button>
+    <button id="btnHelp">❓ 使用说明</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: input -->
+  <div class="panel">
+    <div class="panel-head">
+      <h2>📝 文章正文</h2>
+      <div class="actions">
+        <button class="ghost" id="btnSample">示例</button>
+        <button class="ghost" id="btnClear">清空</button>
+        <button class="primary" id="btnCheck">立即检查</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <textarea id="article" placeholder="把公众号正文粘贴到这里...&#10;&#10;💡 后台预览链接里的正文：先安装书签栏小工具，在预览页点一下，正文会自动复制到剪贴板，回来 Cmd+V 即可。"></textarea>
+    </div>
+    <div class="footer-hint">
+      字数：<span id="charCount">0</span>　|　行数：<span id="lineCount">0</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: results -->
+  <div class="panel">
+    <div class="panel-head">
+      <h2>🔍 检查结果</h2>
+      <div class="actions">
+        <button class="ghost" id="btnCopyPrompt">复制 AI prompt</button>
+        <button class="ghost" id="btnExport">导出报告</button>
+      </div>
+    </div>
+    <div class="panel-body" id="results">
+      <div class="results-empty">点击「立即检查」开始扫描，结果会显示在这里。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RULES MODAL -->
+<div class="modal-mask" id="rulesModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⚙️ 规则管理</h3>
+      <button class="ghost" data-close>✕</button>
+    </div>
+    <div class="sync-bar">
+      ☁️
+      <input type="url" id="syncUrl" placeholder="云端规则 JSON 的 URL（如 https://gist.github.com/.../raw/rules.json）">
+      <button id="btnSyncFetch" class="primary">立即拉取</button>
+      <span class="sync-status" id="syncStatus"></span>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--muted);">共 <b id="ruleTotal">0</b> 条规则，启用 <b id="ruleEnabled">0</b> 条</div>
+        <div style="display:flex;gap:8px;">
+          <button id="btnAddRule" class="primary">+ 新增规则</button>
+          <button id="btnImportRules">📁 导入 JSON</button>
+          <button id="btnExportRules">💾 导出 JSON</button>
+          <button id="btnResetRules" class="danger">恢复默认</button>
+        </div>
+      </div>
+      <div class="rule-list" id="ruleList"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="primary" data-close>完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT RULE MODAL -->
+<div class="modal-mask" id="editRuleModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="editRuleTitle">新增规则</h3>
+      <button class="ghost" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>规则名称</label>
+        <input type="text" id="r-name" placeholder="如：iPhone 写法规范">
+      </div>
+      <div class="field"><label>说明（可选）</label>
+        <input type="text" id="r-desc" placeholder="给自己/同事看的简要说明">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div class="field"><label>分组</label>
+          <input type="text" id="r-group" placeholder="如：老板特殊规定 🔧">
+        </div>
+        <div class="field"><label>严重度</label>
+          <select id="r-level">
+            <option value="danger">严重</option>
+            <option value="warn" selected>警告</option>
+            <option value="info">提示</option>
+          </select>
+        </div>
+        <div class="field"><label>类型</label>
+          <select id="r-type">
+            <option value="keyword-list">关键词列表</option>
+            <option value="keyword-map">错别字对照</option>
+            <option value="regex">正则表达式</option>
+            <option value="function">JS 函数（高级）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field rule-config" data-type="keyword-list">
+        <label>关键词（一行一个）</label>
+        <textarea id="r-words" placeholder="第一&#10;独家&#10;100%"></textarea>
+        <div class="hint">出现这些词就报警。</div>
+      </div>
+      <div class="field rule-config" data-type="keyword-list">
+        <label>修改建议</label>
+        <input type="text" id="r-words-fix" placeholder="如：考虑换用相对化表达">
+      </div>
+
+      <div class="field rule-config" data-type="keyword-map" style="display:none;">
+        <label>错别字对照（一行一对，用 -> 分隔）</label>
+        <textarea id="r-pairs" placeholder="再接再励 -> 再接再厉&#10;按装 -> 安装"></textarea>
+        <div class="hint">检测到左边的词，建议改成右边的。</div>
+      </div>
+
+      <div class="field rule-config" data-type="regex" style="display:none;">
+        <label>正则表达式</label>
+        <input type="text" id="r-pattern" placeholder="如：([的了是])\\1">
+        <div class="hint">JavaScript 正则语法，不要带前后斜杠。</div>
+      </div>
+      <div class="field rule-config" data-type="regex" style="display:none;">
+        <label>标志位</label>
+        <input type="text" id="r-flags" value="g">
+        <div class="hint">通常 g（全部匹配）。可加 i（忽略大小写）、m（多行）。</div>
+      </div>
+      <div class="field rule-config" data-type="regex" style="display:none;">
+        <label>修改建议</label>
+        <input type="text" id="r-regex-fix" placeholder="如：删除重复字">
+      </div>
+
+      <div class="field rule-config" data-type="function" style="display:none;">
+        <label>JS 函数体（可访问 text 参数，return 一个 issues 数组）</label>
+        <textarea id="r-body" style="min-height:160px;" placeholder="const issues = [];&#10;const re = /xxx/g;&#10;let m;&#10;while ((m = re.exec(text)) !== null) {&#10;  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '修改建议' });&#10;}&#10;return issues;"></textarea>
+        <div class="hint">issue 格式：{ index: 起始位置, length: 长度, snippet: 原文片段, fix: 修改建议 }</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button data-close>取消</button>
+      <button class="primary" id="btnSaveRule">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKMARKLET MODAL -->
+<div class="modal-mask" id="bookmarkModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🔖 安装预览页书签</h3>
+      <button class="ghost" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <p>把下面这个蓝色按钮 <b>拖拽</b> 到浏览器的书签栏（如果没看到书签栏，按 <code>Cmd+Shift+B</code> 打开）。装好后，下次在公众号后台点开任意文章的「预览」页面，<b>点一下书签</b>，正文会自动复制到剪贴板，再切回这个工具粘贴即可。</p>
+      <p style="text-align:center;margin:24px 0;">
+        <a class="bookmarklet-link" id="bookmarkletLink" href="#" onclick="return false;">📋 一键复制公众号正文</a>
+      </p>
+      <p style="font-size:12px;color:var(--muted);">如果拖不动，也可以右键这个按钮 → 「添加到书签」/「将链接加入书签」。或手动新建书签，把下面这段代码粘贴到 URL 框：</p>
+      <pre class="code" id="bookmarkletCode"></pre>
+      <p style="font-size:12px;color:var(--muted);margin-top:14px;">⚠️ 注意：预览页 DOM 偶尔会变，如果某天提取不到正文，告诉我，我帮你更新选择器。</p>
+    </div>
+    <div class="modal-foot">
+      <button class="primary" data-close>知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-mask" id="helpModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>❓ 使用说明</h3>
+      <button class="ghost" data-close>✕</button>
+    </div>
+    <div class="modal-body" style="line-height:1.8;">
+      <h4>三种用法</h4>
+      <p><b>1）粘贴正文检查</b>：把已经写好的稿子复制到左边输入框，点「立即检查」。</p>
+      <p><b>2）从公众号后台预览页抓正文</b>：先在「🔖 安装预览页书签」里把书签装到浏览器书签栏；之后预览页面里点一下书签 → 正文复制到剪贴板 → 切回此工具粘贴。</p>
+      <p><b>3）AI 兜底语义检查</b>：检查完点「复制 AI prompt」，把整段内容粘到 QoderWork / ChatGPT 让 AI 再做事实/语病/标题党审查。</p>
+
+      <h4>规则更新</h4>
+      <p><b>本地新增/编辑</b>：「⚙️ 规则管理」里 + 新增规则。支持关键词、错别字对照、正则、JS 函数 4 种类型。</p>
+      <p><b>云端同步</b>：把规则 JSON 放到 GitHub Gist（或任何能返回 JSON 的公开 URL），在规则管理顶部填写 URL，点「立即拉取」。下次打开工具会自动拉一次。</p>
+      <p style="background:#f6f6f3;padding:10px;border-radius:6px;font-size:12px;">
+        <b>Gist 教程</b>：去 <a href="https://gist.github.com" target="_blank">gist.github.com</a> 新建一个文件叫 <code>rules.json</code>，把规则贴进去 → Create gist → 点「Raw」按钮 → 复制地址栏 URL（形如 <code>https://gist.githubusercontent.com/.../rules.json</code>）→ 粘到工具里。
+      </p>
+
+      <h4>数据存储</h4>
+      <p>所有规则和云端 URL 都保存在浏览器 <code>localStorage</code>，换浏览器会丢；用「导出 JSON」备份一份保平安。</p>
+    </div>
+    <div class="modal-foot">
+      <button class="primary" data-close>明白</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileImport" accept=".json" style="display:none;">
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================
+   状态
+   ============================================ */
+const STORAGE_KEY = 'gzh-checker-v2';
+const state = {
+  rules: [],         // 当前所有规则
+  syncUrl: '',       // 云端 URL
+  lastSync: null,    // 上次同步时间
+  editingId: null,   // 正在编辑的规则 id（新增时为 null）
+};
+
+/* ============================================
+   默认规则（与外置 JSON 文件保持一致）
+   ============================================ */
+const DEFAULT_RULES = [
+  {
+    id: 'iphone-format',
+    group: '老板特殊规定 🔧',
+    name: 'iPhone 写法规范',
+    desc: '正确写法是 iPhone 17 Pro（i 小写、P 大写、有空格）。同样适用 iPad / iMac / iOS / macOS。',
+    level: 'danger',
+    enabled: true,
+    type: 'function',
+    body: `const issues = [];
+const re = /(iphone|ipad|imac|ios|macos|watchos|ipados|airpods)\\s*\\d*\\s*(pro\\s*max|promax|pro|plus|mini|max|air|se|e)?/gi;
+const correctBrand = { iphone:'iPhone', ipad:'iPad', imac:'iMac', ios:'iOS', macos:'macOS', watchos:'watchOS', ipados:'iPadOS', airpods:'AirPods' };
+const sufMap = { 'promax':'Pro Max','pro':'Pro','plus':'Plus','mini':'mini','max':'Max','air':'Air','se':'SE','e':'e' };
+let m;
+while ((m = re.exec(text)) !== null) {
+  const brand = correctBrand[m[1].toLowerCase()];
+  const numMatch = m[0].match(/\\d+/);
+  const num = numMatch ? numMatch[0] : '';
+  const suf = m[2] ? sufMap[m[2].toLowerCase().replace(/\\s+/g,'')] : '';
+  let ideal = brand;
+  if (num) ideal += ' ' + num;
+  if (suf) ideal += ' ' + suf;
+  if (m[0] !== ideal) issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: ideal });
+}
+const re2 = /苹果\\s*(\\d+)\\s*(pro\\s*max|pro|plus|mini|max)?/gi;
+while ((m = re2.exec(text)) !== null) {
+  const num = m[1];
+  const suf = m[2] ? ' ' + sufMap[m[2].toLowerCase().replace(/\\s+/g,'')] : '';
+  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: 'iPhone ' + num + suf });
+}
+return issues;`
+  },
+  {
+    id: 'cn-number',
+    group: '老板特殊规定 🔧',
+    name: '中文数字应改为阿拉伯数字',
+    desc: '一二三 + 量词（个/次/天/分钟…）应改阿拉伯数字。成语会误报，请人工判断。',
+    level: 'warn',
+    enabled: true,
+    type: 'function',
+    body: `const issues = [];
+const cnNum = '[一二三四五六七八九十百千万两]';
+const measure = '(个|次|位|名|分钟|小时|天|周|月|年|岁|元|块|斤|公里|米|厘米|毫米|款|种|遍|轮|项|条|篇|套|张|场|波|步|杯|份|册|页|秒|刻)';
+const whitelist = ['一带一路','三国','十全十美','五一','十一','九九','三五成群','七七八八','一二三','再三','一年半载','三言两语'];
+const re = new RegExp(cnNum + '+' + measure, 'g');
+let m;
+while ((m = re.exec(text)) !== null) {
+  const around = text.slice(Math.max(0, m.index - 2), m.index + m[0].length + 2);
+  if (whitelist.some(w => around.includes(w))) continue;
+  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '请改用阿拉伯数字' });
+}
+const reDi = new RegExp('第' + cnNum + '+(次|个|位|届|期|代|版|名|轮|季|集|关|批)', 'g');
+while ((m = reDi.exec(text)) !== null) {
+  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '建议改为「第 X」用阿拉伯数字' });
+}
+return issues;`
+  },
+  {
+    id: 'common-typo',
+    group: '错别字 / 病句 ✅',
+    name: '高频错别字',
+    desc: '内置常见错别字对照表。',
+    level: 'danger',
+    enabled: true,
+    type: 'keyword-map',
+    pairs: [
+      ['再接再励','再接再厉'],['按装','安装'],['帐号','账号'],['帐户','账户'],
+      ['即然','既然'],['园满','圆满'],['迫不急待','迫不及待'],['震憾','震撼'],
+      ['一愁莫展','一筹莫展'],['不径而走','不胫而走'],['亲睐','青睐'],
+      ['名信片','明信片'],['甘败下风','甘拜下风'],['渡假','度假'],
+      ['默守成规','墨守成规'],['走头无路','走投无路']
+    ]
+  },
+  {
+    id: 'dup-char',
+    group: '错别字 / 病句 ✅',
+    name: '疑似重复字',
+    desc: '如「的的」「了了」「是是」等连续重复。',
+    level: 'warn',
+    enabled: true,
+    type: 'regex',
+    pattern: '([的了是在和与就也都])\\1',
+    flags: 'g',
+    fix: '删除一个'
+  },
+  {
+    id: 'halfwidth-punc',
+    group: '格式 / 排版 ✅',
+    name: '中文里混入半角标点',
+    desc: '中文里应使用全角标点 ，。？！：；',
+    level: 'warn',
+    enabled: true,
+    type: 'function',
+    body: `const issues = [];
+const re = /[\\u4e00-\\u9fa5]\\s*([,.;:!?])\\s*[\\u4e00-\\u9fa5]/g;
+const map = { ',':'，', '.':'。', ';':'；', ':':'：', '!':'！', '?':'？' };
+let m;
+while ((m = re.exec(text)) !== null) {
+  const punc = m[1];
+  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: m[0].replace(punc, map[punc]) });
+}
+return issues;`
+  },
+  {
+    id: 'dup-punc',
+    group: '格式 / 排版 ✅',
+    name: '连续重复标点',
+    desc: '如「。。」「！！」「，，」等。',
+    level: 'warn',
+    enabled: true,
+    type: 'regex',
+    pattern: '([，。！？；：、,.!?;:])\\1+',
+    flags: 'g',
+    fix: '保留一个即可'
+  },
+  {
+    id: 'multi-space',
+    group: '格式 / 排版 ✅',
+    name: '多余连续空格',
+    desc: '连续 2 个及以上空格。',
+    level: 'info',
+    enabled: true,
+    type: 'regex',
+    pattern: ' {2,}',
+    flags: 'g',
+    fix: '改为 1 个空格'
+  },
+  {
+    id: 'absolute-words',
+    group: '敏感词 / 合规 ⚠️',
+    name: '广告法极限词',
+    desc: '"第一/独家/100%" 等绝对化用语可能违反广告法。',
+    level: 'danger',
+    enabled: true,
+    type: 'keyword-list',
+    words: ['第一','首个','独家','唯一','顶级','国家级','世界级','永久','绝对','100%','最佳','最好','最低','最高','根治','治愈','保本','稳赚','保过','官方推荐'],
+    fix: '考虑换用相对化表达'
+  },
+  {
+    id: 'link-check',
+    group: '其他提示',
+    name: '链接需复查',
+    desc: '检测到 http(s) 链接，请确认是否可点击、是否最新。',
+    level: 'info',
+    enabled: true,
+    type: 'regex',
+    pattern: 'https?://[^\\s，。！？)]+',
+    flags: 'g',
+    fix: '请确认链接有效且为最新'
+  }
+];
+
+/* ============================================
+   持久化
+   ============================================ */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      state.rules = obj.rules && obj.rules.length ? obj.rules : JSON.parse(JSON.stringify(DEFAULT_RULES));
+      state.syncUrl = obj.syncUrl || '';
+      state.lastSync = obj.lastSync || null;
+      return;
+    }
+  } catch (e) { console.warn('载入状态失败', e); }
+  state.rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      rules: state.rules, syncUrl: state.syncUrl, lastSync: state.lastSync
+    }));
+  } catch (e) {}
+}
+
+/* ============================================
+   规则执行引擎
+   ============================================ */
+function runRule(rule, text) {
+  if (!rule.enabled) return [];
+  try {
+    if (rule.type === 'keyword-list') {
+      const issues = [];
+      (rule.words || []).forEach(w => {
+        if (!w) return;
+        let idx = 0;
+        while ((idx = text.indexOf(w, idx)) !== -1) {
+          // 简单白名单
+          if (w === '最' && /最(近|后|初|新|早|晚|多|少)/.test(text.slice(idx, idx + 2))) { idx += 1; continue; }
+          issues.push({ index: idx, length: w.length, snippet: w, fix: rule.fix || '请检查' });
+          idx += w.length;
+        }
+      });
+      return issues;
+    }
+    if (rule.type === 'keyword-map') {
+      const issues = [];
+      (rule.pairs || []).forEach(pair => {
+        const [wrong, right] = Array.isArray(pair) ? pair : String(pair).split('->').map(s => s.trim());
+        if (!wrong || !right) return;
+        let idx = 0;
+        while ((idx = text.indexOf(wrong, idx)) !== -1) {
+          issues.push({ index: idx, length: wrong.length, snippet: wrong, fix: right });
+          idx += wrong.length;
+        }
+      });
+      return issues;
+    }
+    if (rule.type === 'regex') {
+      const issues = [];
+      const re = new RegExp(rule.pattern, rule.flags || 'g');
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        if (m[0].length === 0) { re.lastIndex++; continue; }
+        issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: rule.fix || '请检查' });
+      }
+      return issues;
+    }
+    if (rule.type === 'function') {
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('text', rule.body);
+      const result = fn(text);
+      return Array.isArray(result) ? result : [];
+    }
+  } catch (e) {
+    console.error('规则执行错误', rule.id, e);
+    return [{ index: 0, length: 0, snippet: '[规则报错]', fix: rule.name + ' 规则执行失败：' + e.message }];
+  }
+  return [];
+}
+
+function runChecks() {
+  const text = document.getElementById('article').value;
+  const box = document.getElementById('results');
+  if (!text.trim()) {
+    box.innerHTML = '<div class="results-empty">请先粘贴文章。</div>';
+    return;
+  }
+  const allIssues = [];
+  state.rules.forEach(r => {
+    runRule(r, text).forEach(i => allIssues.push({ ...i, ruleId: r.id, ruleName: r.name, level: r.level }));
+  });
+  allIssues.sort((a, b) => a.index - b.index);
+  renderResults(allIssues, text.length);
+}
+
+function renderResults(issues, textLen) {
+  const box = document.getElementById('results');
+  const counts = { danger: 0, warn: 0, info: 0 };
+  issues.forEach(i => counts[i.level] = (counts[i.level] || 0) + 1);
+
+  let html = `<div class="summary">
+    <span class="pill ${counts.danger ? 'danger' : 'ok'}"><span class="dot"></span>严重 ${counts.danger}</span>
+    <span class="pill ${counts.warn ? 'warn' : 'ok'}"><span class="dot"></span>警告 ${counts.warn}</span>
+    <span class="pill ${counts.info ? 'info' : 'ok'}"><span class="dot"></span>提示 ${counts.info}</span>
+    <span class="pill ok"><span class="dot"></span>总字数 ${textLen}</span>
+  </div>`;
+
+  if (issues.length === 0) {
+    html += `<div class="results-empty">✅ 本地规则未发现问题，记得用 AI prompt 再做一遍语义检查。</div>`;
+  } else {
+    html += `<div class="issue-list">`;
+    issues.forEach(i => {
+      const tagText = i.level === 'danger' ? '严重' : (i.level === 'warn' ? '警告' : '提示');
+      html += `
+        <div class="issue">
+          <div class="issue-head">
+            <span class="issue-tag ${i.level}">${tagText}</span>
+            <span class="issue-rule">${escapeHTML(i.ruleName)}</span>
+            <span style="margin-left:auto;color:var(--muted);font-size:11px;">位置 ${i.index}</span>
+          </div>
+          <div class="issue-snippet"><mark>${escapeHTML(i.snippet)}</mark></div>
+          <div class="issue-fix">建议：<b>${escapeHTML(i.fix)}</b></div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+  box.innerHTML = html;
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ============================================
+   规则管理 UI
+   ============================================ */
+function openRulesModal() {
+  document.getElementById('syncUrl').value = state.syncUrl || '';
+  document.getElementById('syncStatus').textContent = state.lastSync ? `上次同步：${new Date(state.lastSync).toLocaleString('zh-CN')}` : '从未同步';
+  renderRuleList();
+  showModal('rulesModal');
+}
+function renderRuleList() {
+  const list = document.getElementById('ruleList');
+  document.getElementById('ruleTotal').textContent = state.rules.length;
+  document.getElementById('ruleEnabled').textContent = state.rules.filter(r => r.enabled).length;
+  if (state.rules.length === 0) {
+    list.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);">还没有规则，点上面「+ 新增规则」开始。</div>';
+    return;
+  }
+  let html = '';
+  state.rules.forEach(r => {
+    const typeLabel = { 'keyword-list':'关键词','keyword-map':'错别字对照','regex':'正则','function':'JS函数' }[r.type] || r.type;
+    html += `
+      <div class="rule-row">
+        <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} data-toggle="${r.id}"><span></span></label>
+        <div class="rule-name">
+          <div><b>${escapeHTML(r.name)}</b></div>
+          ${r.desc ? `<div class="desc">${escapeHTML(r.desc)}</div>` : ''}
+          <div class="meta">
+            <span class="level ${r.level}">${r.level === 'danger' ? '严重' : r.level === 'warn' ? '警告' : '提示'}</span>
+            <span class="type">${typeLabel}</span>
+            <span>${escapeHTML(r.group || '')}</span>
+          </div>
+        </div>
+        <button class="ghost" data-edit="${r.id}">编辑</button>
+        <button class="danger" data-delete="${r.id}">删除</button>
+      </div>`;
+  });
+  list.innerHTML = html;
+
+  list.querySelectorAll('[data-toggle]').forEach(el => {
+    el.addEventListener('change', e => {
+      const r = state.rules.find(x => x.id === el.dataset.toggle);
+      if (r) { r.enabled = e.target.checked; saveState(); renderRuleList(); }
+    });
+  });
+  list.querySelectorAll('[data-edit]').forEach(el => {
+    el.addEventListener('click', () => openEditRule(el.dataset.edit));
+  });
+  list.querySelectorAll('[data-delete]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (confirm('确定删除这条规则？')) {
+        state.rules = state.rules.filter(r => r.id !== el.dataset.delete);
+        saveState(); renderRuleList();
+      }
+    });
+  });
+}
+
+function openEditRule(id) {
+  state.editingId = id;
+  let r;
+  if (id) {
+    r = state.rules.find(x => x.id === id);
+    document.getElementById('editRuleTitle').textContent = '编辑规则';
+  } else {
+    r = { name:'', desc:'', group:'自定义', level:'warn', type:'keyword-list', words:[], fix:'' };
+    document.getElementById('editRuleTitle').textContent = '新增规则';
+  }
+  document.getElementById('r-name').value = r.name || '';
+  document.getElementById('r-desc').value = r.desc || '';
+  document.getElementById('r-group').value = r.group || '自定义';
+  document.getElementById('r-level').value = r.level || 'warn';
+  document.getElementById('r-type').value = r.type || 'keyword-list';
+  document.getElementById('r-words').value = (r.words || []).join('\n');
+  document.getElementById('r-words-fix').value = r.type === 'keyword-list' ? (r.fix || '') : '';
+  document.getElementById('r-pairs').value = (r.pairs || []).map(p => Array.isArray(p) ? p.join(' -> ') : p).join('\n');
+  document.getElementById('r-pattern').value = r.pattern || '';
+  document.getElementById('r-flags').value = r.flags || 'g';
+  document.getElementById('r-regex-fix').value = r.type === 'regex' ? (r.fix || '') : '';
+  document.getElementById('r-body').value = r.body || '';
+  updateRuleTypeFields();
+  showModal('editRuleModal');
+}
+
+function updateRuleTypeFields() {
+  const t = document.getElementById('r-type').value;
+  document.querySelectorAll('.rule-config').forEach(el => {
+    el.style.display = el.dataset.type === t ? '' : 'none';
+  });
+}
+
+function saveRule() {
+  const name = document.getElementById('r-name').value.trim();
+  if (!name) { toast('请填写规则名称'); return; }
+  const type = document.getElementById('r-type').value;
+  const r = {
+    id: state.editingId || ('custom-' + Date.now()),
+    name,
+    desc: document.getElementById('r-desc').value.trim(),
+    group: document.getElementById('r-group').value.trim() || '自定义',
+    level: document.getElementById('r-level').value,
+    enabled: true,
+    type
+  };
+  if (type === 'keyword-list') {
+    r.words = document.getElementById('r-words').value.split('\n').map(s => s.trim()).filter(Boolean);
+    r.fix = document.getElementById('r-words-fix').value.trim();
+    if (!r.words.length) { toast('至少填一个关键词'); return; }
+  } else if (type === 'keyword-map') {
+    r.pairs = document.getElementById('r-pairs').value.split('\n').map(line => {
+      const [a, b] = line.split('->').map(s => s.trim());
+      return a && b ? [a, b] : null;
+    }).filter(Boolean);
+    if (!r.pairs.length) { toast('至少填一对'); return; }
+  } else if (type === 'regex') {
+    r.pattern = document.getElementById('r-pattern').value;
+    r.flags = document.getElementById('r-flags').value || 'g';
+    r.fix = document.getElementById('r-regex-fix').value.trim();
+    if (!r.pattern) { toast('请填写正则'); return; }
+    try { new RegExp(r.pattern, r.flags); } catch(e) { toast('正则有误：' + e.message); return; }
+  } else if (type === 'function') {
+    r.body = document.getElementById('r-body').value;
+    if (!r.body.trim()) { toast('请填写函数体'); return; }
+    try { new Function('text', r.body); } catch(e) { toast('函数有误：' + e.message); return; }
+  }
+  // 保留 enabled 状态
+  if (state.editingId) {
+    const old = state.rules.find(x => x.id === state.editingId);
+    if (old) r.enabled = old.enabled;
+    state.rules = state.rules.map(x => x.id === state.editingId ? r : x);
+  } else {
+    state.rules.push(r);
+  }
+  saveState();
+  hideModal('editRuleModal');
+  renderRuleList();
+  toast('已保存');
+}
+
+/* ============================================
+   云端同步
+   ============================================ */
+async function fetchSync() {
+  const url = document.getElementById('syncUrl').value.trim();
+  if (!url) { toast('请先填写云端 URL'); return; }
+  state.syncUrl = url;
+  document.getElementById('syncStatus').textContent = '拉取中...';
+  try {
+    const resp = await fetch(url, { cache: 'no-cache' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const rules = data.rules || data;
+    if (!Array.isArray(rules)) throw new Error('JSON 格式不正确，应该是 {rules:[...]} 或 [...]');
+    // 合并：以云端为主，保留本地新增的 custom-* 规则
+    const localCustom = state.rules.filter(r => r.id.startsWith('custom-'));
+    state.rules = [...rules, ...localCustom];
+    state.lastSync = Date.now();
+    saveState();
+    renderRuleList();
+    document.getElementById('syncStatus').textContent = `✅ 已更新 ${rules.length} 条规则 (${new Date().toLocaleTimeString('zh-CN')})`;
+    toast(`同步成功，共 ${rules.length} 条云端规则`);
+  } catch (e) {
+    document.getElementById('syncStatus').textContent = `❌ 失败：${e.message}`;
+    toast('同步失败：' + e.message);
+  }
+}
+
+/* 启动时自动尝试拉取一次（如果配置了 URL） */
+async function autoSyncOnLoad() {
+  if (!state.syncUrl) return;
+  try {
+    const resp = await fetch(state.syncUrl, { cache: 'no-cache' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const rules = data.rules || data;
+    if (!Array.isArray(rules)) return;
+    const localCustom = state.rules.filter(r => r.id.startsWith('custom-'));
+    state.rules = [...rules, ...localCustom];
+    state.lastSync = Date.now();
+    saveState();
+    console.log('启动自动同步成功，' + rules.length + ' 条规则');
+  } catch(e) { console.warn('启动自动同步失败', e); }
+}
+
+/* ============================================
+   导入 / 导出
+   ============================================ */
+function exportRules() {
+  const data = { version: new Date().toISOString().slice(0,10), rules: state.rules };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `公众号纠错规则_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function importRulesFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const rules = data.rules || data;
+      if (!Array.isArray(rules)) throw new Error('格式不正确');
+      if (confirm(`将导入 ${rules.length} 条规则，是否替换当前所有规则？\n(取消 = 与当前规则合并)`)) {
+        state.rules = rules;
+      } else {
+        const existingIds = new Set(state.rules.map(r => r.id));
+        rules.forEach(r => { if (!existingIds.has(r.id)) state.rules.push(r); });
+      }
+      saveState();
+      renderRuleList();
+      toast('导入完成');
+    } catch (err) { toast('导入失败：' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================================
+   AI prompt
+   ============================================ */
+function buildAIPrompt() {
+  const text = document.getElementById('article').value.trim();
+  const activeRules = state.rules.filter(r => r.enabled);
+  const rulesText = activeRules.map((r, i) => `${i + 1}. 【${r.name}】${r.desc || ''}`).join('\n');
+  return `你是一名资深公众号编辑，请对下面这篇文章做一次"发布前审稿"，重点关注：
+
+== 检查清单 ==
+${rulesText}
+
+另外请额外检查：
+- 事实/数据前后是否一致（标题数字 = 正文数字）
+- 是否有政治、宗教、隐私等敏感内容
+- 是否有明显的语义病句、逻辑跳跃
+- 标题党、夸大宣传
+
+== 输出格式 ==
+请按【严重 / 警告 / 提示】三档分类列出问题，每条包含：
+- 原文片段
+- 问题说明
+- 修改建议
+
+== 文章正文 ==
+${text}`;
+}
+
+/* ============================================
+   书签栏小工具
+   ============================================ */
+const BOOKMARKLET = `javascript:(function(){var sels=['#js_content','.rich_media_content','#page-content','[data-role="article"]'];var content='';for(var i=0;i<sels.length;i++){var el=document.querySelector(sels[i]);if(el){content=el.innerText;break;}}var titleEl=document.querySelector('#activity-name')||document.querySelector('.rich_media_title')||document.querySelector('h1');var title=titleEl?titleEl.innerText.trim():'';var full=(title?title+'\\n\\n':'')+content;if(!full.trim()){alert('未找到正文，可能不是公众号预览页');return;}navigator.clipboard.writeText(full).then(function(){alert('已复制 '+full.length+' 字到剪贴板，回到纠错工具粘贴即可');},function(){prompt('自动复制失败，请手动复制下面文本:',full);});})();`;
+
+function openBookmarkModal() {
+  const link = document.getElementById('bookmarkletLink');
+  link.href = BOOKMARKLET;
+  document.getElementById('bookmarkletCode').textContent = BOOKMARKLET;
+  showModal('bookmarkModal');
+}
+
+/* ============================================
+   通用 modal 控制
+   ============================================ */
+function showModal(id) { document.getElementById(id).classList.add('show'); }
+function hideModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('[data-close]').forEach(el => {
+  el.addEventListener('click', () => {
+    const modal = el.closest('.modal-mask');
+    if (modal) modal.classList.remove('show');
+  });
+});
+document.querySelectorAll('.modal-mask').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+/* ============================================
+   字数 / 行数
+   ============================================ */
+function updateStats() {
+  const t = document.getElementById('article').value;
+  document.getElementById('charCount').textContent = t.length;
+  document.getElementById('lineCount').textContent = t ? t.split('\n').length : 0;
+}
+
+/* ============================================
+   报告导出
+   ============================================ */
+function exportReport() {
+  const text = document.getElementById('article').value;
+  if (!text.trim()) { toast('请先粘贴文章'); return; }
+  const html = document.getElementById('results').innerHTML;
+  const blob = new Blob([
+    `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>公众号检查报告</title>
+    <style>body{font-family:-apple-system,sans-serif;max-width:780px;margin:40px auto;padding:0 20px;color:#1f2328;}
+    .issue{padding:10px 0;border-bottom:1px solid #eee;}
+    .issue-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:#f0f0f0;}
+    .issue-tag.danger{background:#fee2e2;color:#dc2626;}
+    .issue-tag.warn{background:#fef3c7;color:#d97706;}
+    .issue-tag.info{background:#dbeafe;color:#2f6feb;}
+    .issue-snippet{background:#f6f6f3;padding:6px 10px;border-radius:4px;font-family:monospace;margin:6px 0;}
+    mark{background:#fde68a;padding:0 2px;}
+    .summary{margin-bottom:20px;}
+    .pill{display:inline-block;padding:3px 10px;margin-right:6px;border-radius:999px;background:#f0f0f0;font-size:12px;}
+    .pill.danger{background:#fee2e2;color:#dc2626;} .pill.warn{background:#fef3c7;color:#d97706;} .pill.info{background:#dbeafe;color:#2f6feb;} .pill.ok{background:#dcfce7;color:#15803d;}
+    </style></head><body>
+    <h1>公众号文章检查报告</h1>
+    <p style="color:#888;font-size:12px;">生成时间：${new Date().toLocaleString('zh-CN')}</p>
+    ${html}
+    </body></html>`
+  ], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `公众号检查报告_${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================
+   toast
+   ============================================ */
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(() => toast('已复制到剪贴板'));
+}
+
+/* ============================================
+   绑定
+   ============================================ */
+document.getElementById('btnCheck').addEventListener('click', runChecks);
+document.getElementById('btnClear').addEventListener('click', () => {
+  document.getElementById('article').value = '';
+  updateStats();
+  document.getElementById('results').innerHTML = '<div class="results-empty">点击「立即检查」开始扫描，结果会显示在这里。</div>';
+});
+document.getElementById('btnSample').addEventListener('click', () => {
+  document.getElementById('article').value = `这是史上最便宜的iphone17pro！！
+
+苹果公司在今天的发布会上推出了三款新机型，分别是iPhone17、iphone 17pro、iphone17 pro max。其中iphone17pro的售价是7999元，比前代降了五百块。
+
+我们认为这是苹果第一款真正意义上的AI手机，绝对值得入手。文章详情请见：https://example.com/iphone17
+
+注意!! 全国限量发售，仅此一次..  错过再等一年。`;
+  updateStats();
+  runChecks();
+});
+document.getElementById('btnCopyPrompt').addEventListener('click', () => {
+  if (!document.getElementById('article').value.trim()) { toast('请先粘贴文章'); return; }
+  copyText(buildAIPrompt());
+});
+document.getElementById('btnExport').addEventListener('click', exportReport);
+document.getElementById('article').addEventListener('input', updateStats);
+
+document.getElementById('btnRules').addEventListener('click', openRulesModal);
+document.getElementById('btnBookmark').addEventListener('click', openBookmarkModal);
+document.getElementById('btnHelp').addEventListener('click', () => showModal('helpModal'));
+
+document.getElementById('btnSyncFetch').addEventListener('click', fetchSync);
+document.getElementById('syncUrl').addEventListener('change', e => { state.syncUrl = e.target.value.trim(); saveState(); });
+
+document.getElementById('btnAddRule').addEventListener('click', () => openEditRule(null));
+document.getElementById('btnSaveRule').addEventListener('click', saveRule);
+document.getElementById('r-type').addEventListener('change', updateRuleTypeFields);
+
+document.getElementById('btnExportRules').addEventListener('click', exportRules);
+document.getElementById('btnImportRules').addEventListener('click', () => document.getElementById('fileImport').click());
+document.getElementById('fileImport').addEventListener('change', e => {
+  if (e.target.files[0]) importRulesFile(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btnResetRules').addEventListener('click', () => {
+  if (confirm('确定恢复为默认规则？所有自定义规则会被清除。')) {
+    state.rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+    saveState();
+    renderRuleList();
+    toast('已恢复默认规则');
+  }
+});
+
+// 初始化
+loadState();
+updateStats();
+autoSyncOnLoad();
+</script>
+</body>
+</html>
