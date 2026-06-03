@@ -9,8 +9,8 @@
       "desc": "正确写法是 iPhone 17 Pro（i 小写、P 大写、有空格）。同样适用 iPad / iMac / iOS / macOS。",
       "level": "danger",
       "enabled": true,
-      "type": "function",
-      "body": "const issues = [];\nconst re = /(iphone|ipad|imac|ios|macos|watchos|ipados|airpods)\\s*\\d*\\s*(pro\\s*max|promax|pro|plus|mini|max|air|se|e)?/gi;\nconst correctBrand = { iphone:'iPhone', ipad:'iPad', imac:'iMac', ios:'iOS', macos:'macOS', watchos:'watchOS', ipados:'iPadOS', airpods:'AirPods' };\nconst sufMap = { 'promax':'Pro Max','pro':'Pro','plus':'Plus','mini':'mini','max':'Max','air':'Air','se':'SE','e':'e' };\nlet m;\nwhile ((m = re.exec(text)) !== null) {\n  const brand = correctBrand[m[1].toLowerCase()];\n  const numMatch = m[0].match(/\\d+/);\n  const num = numMatch ? numMatch[0] : '';\n  const suf = m[2] ? sufMap[m[2].toLowerCase().replace(/\\s+/g,'')] : '';\n  let ideal = brand;\n  if (num) ideal += ' ' + num;\n  if (suf) ideal += ' ' + suf;\n  if (m[0] !== ideal) issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: ideal });\n}\n// 苹果 17 这种中文写法\nconst re2 = /苹果\\s*(\\d+)\\s*(pro\\s*max|pro|plus|mini|max)?/gi;\nwhile ((m = re2.exec(text)) !== null) {\n  const num = m[1];\n  const suf = m[2] ? ' ' + sufMap[m[2].toLowerCase().replace(/\\s+/g,'')] : '';\n  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: 'iPhone ' + num + suf });\n}\nreturn issues;"
+      "type": "builtin",
+      "builtin": "iphone-format"
     },
     {
       "id": "cn-number",
@@ -19,8 +19,8 @@
       "desc": "一二三 + 量词（个/次/天/分钟…）应改阿拉伯数字。成语、专有名词会误报，请人工判断。",
       "level": "warn",
       "enabled": true,
-      "type": "function",
-      "body": "const issues = [];\nconst cnNum = '[一二三四五六七八九十百千万两]';\nconst measure = '(个|次|位|名|分钟|小时|天|周|月|年|岁|元|块|斤|公里|米|厘米|毫米|款|种|遍|轮|项|条|篇|套|张|场|波|步|杯|份|册|页|秒|刻)';\nconst whitelist = ['一带一路','三国','十全十美','五一','十一','九九','三五成群','七七八八','一二三','再三','一年半载','三言两语'];\nconst re = new RegExp(cnNum + '+' + measure, 'g');\nlet m;\nwhile ((m = re.exec(text)) !== null) {\n  const around = text.slice(Math.max(0, m.index - 2), m.index + m[0].length + 2);\n  if (whitelist.some(w => around.includes(w))) continue;\n  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '请改用阿拉伯数字（如「3 个」）' });\n}\nconst reDi = new RegExp('第' + cnNum + '+(次|个|位|届|期|代|版|名|轮|季|集|关|批)', 'g');\nwhile ((m = reDi.exec(text)) !== null) {\n  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '建议改为「第 X」用阿拉伯数字' });\n}\nreturn issues;"
+      "type": "builtin",
+      "builtin": "cn-number"
     },
     {
       "id": "common-typo",
@@ -68,8 +68,8 @@
       "desc": "中文里应使用全角标点 ，。？！：；",
       "level": "warn",
       "enabled": true,
-      "type": "function",
-      "body": "const issues = [];\nconst re = /[\\u4e00-\\u9fa5]\\s*([,.;:!?])\\s*[\\u4e00-\\u9fa5]/g;\nconst map = { ',':'，', '.':'。', ';':'；', ':':'：', '!':'！', '?':'？' };\nlet m;\nwhile ((m = re.exec(text)) !== null) {\n  const punc = m[1];\n  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: m[0].replace(punc, map[punc]) });\n}\nreturn issues;"
+      "type": "builtin",
+      "builtin": "halfwidth-punc"
     },
     {
       "id": "dup-punc",

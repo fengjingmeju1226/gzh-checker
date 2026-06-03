@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>公众号发布前纠错小工具 v2</title>
+<title>火眼晶晶 · 公众号发布前纠错</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   :root {
@@ -147,8 +147,20 @@
   .issue {
     padding: 10px 14px;
     border-bottom: 1px solid #f3f3f0;
+    cursor: pointer;
+    transition: background .1s;
   }
+  .issue:hover { background: #f6f9ff; }
   .issue:last-child { border-bottom: 0; }
+  .issue-loc {
+    margin-left: auto;
+    color: var(--accent);
+    font-size: 11px;
+    background: #eef4ff;
+    padding: 1px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
   .issue-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .issue-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--tag-bg); color: var(--muted); }
   .issue-tag.danger { background: #fee2e2; color: var(--danger); }
@@ -307,8 +319,8 @@
 
 <header>
   <div class="title">
-    <h1>📰 公众号发布前纠错小工具</h1>
-    <p>支持云端规则同步 · 自定义复杂规则 · 一键 AI 兜底</p>
+    <h1>👁️ 火眼晶晶</h1>
+    <p>公众号发布前纠错 · 云端规则同步 · 自定义复杂规则 · 一键 AI 兜底</p>
   </div>
   <div class="toolbar">
     <button id="btnRules">⚙️ 规则管理</button>
@@ -541,29 +553,8 @@ const DEFAULT_RULES = [
     desc: '正确写法是 iPhone 17 Pro（i 小写、P 大写、有空格）。同样适用 iPad / iMac / iOS / macOS。',
     level: 'danger',
     enabled: true,
-    type: 'function',
-    body: `const issues = [];
-const re = /(iphone|ipad|imac|ios|macos|watchos|ipados|airpods)\\s*\\d*\\s*(pro\\s*max|promax|pro|plus|mini|max|air|se|e)?/gi;
-const correctBrand = { iphone:'iPhone', ipad:'iPad', imac:'iMac', ios:'iOS', macos:'macOS', watchos:'watchOS', ipados:'iPadOS', airpods:'AirPods' };
-const sufMap = { 'promax':'Pro Max','pro':'Pro','plus':'Plus','mini':'mini','max':'Max','air':'Air','se':'SE','e':'e' };
-let m;
-while ((m = re.exec(text)) !== null) {
-  const brand = correctBrand[m[1].toLowerCase()];
-  const numMatch = m[0].match(/\\d+/);
-  const num = numMatch ? numMatch[0] : '';
-  const suf = m[2] ? sufMap[m[2].toLowerCase().replace(/\\s+/g,'')] : '';
-  let ideal = brand;
-  if (num) ideal += ' ' + num;
-  if (suf) ideal += ' ' + suf;
-  if (m[0] !== ideal) issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: ideal });
-}
-const re2 = /苹果\\s*(\\d+)\\s*(pro\\s*max|pro|plus|mini|max)?/gi;
-while ((m = re2.exec(text)) !== null) {
-  const num = m[1];
-  const suf = m[2] ? ' ' + sufMap[m[2].toLowerCase().replace(/\\s+/g,'')] : '';
-  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: 'iPhone ' + num + suf });
-}
-return issues;`
+    type: 'builtin',
+    builtin: 'iphone-format'
   },
   {
     id: 'cn-number',
@@ -572,23 +563,8 @@ return issues;`
     desc: '一二三 + 量词（个/次/天/分钟…）应改阿拉伯数字。成语会误报，请人工判断。',
     level: 'warn',
     enabled: true,
-    type: 'function',
-    body: `const issues = [];
-const cnNum = '[一二三四五六七八九十百千万两]';
-const measure = '(个|次|位|名|分钟|小时|天|周|月|年|岁|元|块|斤|公里|米|厘米|毫米|款|种|遍|轮|项|条|篇|套|张|场|波|步|杯|份|册|页|秒|刻)';
-const whitelist = ['一带一路','三国','十全十美','五一','十一','九九','三五成群','七七八八','一二三','再三','一年半载','三言两语'];
-const re = new RegExp(cnNum + '+' + measure, 'g');
-let m;
-while ((m = re.exec(text)) !== null) {
-  const around = text.slice(Math.max(0, m.index - 2), m.index + m[0].length + 2);
-  if (whitelist.some(w => around.includes(w))) continue;
-  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '请改用阿拉伯数字' });
-}
-const reDi = new RegExp('第' + cnNum + '+(次|个|位|届|期|代|版|名|轮|季|集|关|批)', 'g');
-while ((m = reDi.exec(text)) !== null) {
-  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '建议改为「第 X」用阿拉伯数字' });
-}
-return issues;`
+    type: 'builtin',
+    builtin: 'cn-number'
   },
   {
     id: 'common-typo',
@@ -625,16 +601,8 @@ return issues;`
     desc: '中文里应使用全角标点 ，。？！：；',
     level: 'warn',
     enabled: true,
-    type: 'function',
-    body: `const issues = [];
-const re = /[\\u4e00-\\u9fa5]\\s*([,.;:!?])\\s*[\\u4e00-\\u9fa5]/g;
-const map = { ',':'，', '.':'。', ';':'；', ':':'：', '!':'！', '?':'？' };
-let m;
-while ((m = re.exec(text)) !== null) {
-  const punc = m[1];
-  issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: m[0].replace(punc, map[punc]) });
-}
-return issues;`
+    type: 'builtin',
+    builtin: 'halfwidth-punc'
   },
   {
     id: 'dup-punc',
@@ -686,6 +654,79 @@ return issues;`
 ];
 
 /* ============================================
+   内置函数库（原生函数，不走 eval，规避 CSP 限制）
+   ============================================ */
+const BUILTIN_FNS = {
+  'iphone-format': function(text) {
+    const issues = [];
+    const re = /(iphone|ipad|imac|ios|macos|watchos|ipados|airpods)\s*\d*\s*(pro\s*max|promax|pro|plus|mini|max|air|se|e)?/gi;
+    const correctBrand = { iphone:'iPhone', ipad:'iPad', imac:'iMac', ios:'iOS', macos:'macOS', watchos:'watchOS', ipados:'iPadOS', airpods:'AirPods' };
+    const sufMap = { 'promax':'Pro Max','pro':'Pro','plus':'Plus','mini':'mini','max':'Max','air':'Air','se':'SE','e':'e' };
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (m[0].length === 0) { re.lastIndex++; continue; }
+      const brand = correctBrand[m[1].toLowerCase()];
+      const numMatch = m[0].match(/\d+/);
+      const num = numMatch ? numMatch[0] : '';
+      const suf = m[2] ? sufMap[m[2].toLowerCase().replace(/\s+/g,'')] : '';
+      let ideal = brand;
+      if (num) ideal += ' ' + num;
+      if (suf) ideal += ' ' + suf;
+      if (m[0] !== ideal) issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: ideal });
+    }
+    const re2 = /苹果\s*(\d+)\s*(pro\s*max|pro|plus|mini|max)?/gi;
+    while ((m = re2.exec(text)) !== null) {
+      const num = m[1];
+      const suf = m[2] ? ' ' + sufMap[m[2].toLowerCase().replace(/\s+/g,'')] : '';
+      issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: 'iPhone ' + num + suf });
+    }
+    return issues;
+  },
+  'cn-number': function(text) {
+    const issues = [];
+    const cnNum = '[一二三四五六七八九十百千万两]';
+    const measure = '(个|次|位|名|分钟|小时|天|周|月|年|岁|元|块|斤|公里|米|厘米|毫米|款|种|遍|轮|项|条|篇|套|张|场|波|步|杯|份|册|页|秒|刻)';
+    const whitelist = ['一带一路','三国','十全十美','五一','十一','九九','三五成群','七七八八','一二三','再三','一年半载','三言两语'];
+    const re = new RegExp(cnNum + '+' + measure, 'g');
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const around = text.slice(Math.max(0, m.index - 2), m.index + m[0].length + 2);
+      if (whitelist.some(w => around.includes(w))) continue;
+      issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '请改用阿拉伯数字' });
+    }
+    const reDi = new RegExp('第' + cnNum + '+(次|个|位|届|期|代|版|名|轮|季|集|关|批)', 'g');
+    while ((m = reDi.exec(text)) !== null) {
+      issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: '建议改为「第 X」用阿拉伯数字' });
+    }
+    return issues;
+  },
+  'halfwidth-punc': function(text) {
+    const issues = [];
+    const re = /[\u4e00-\u9fa5]\s*([,.;:!?])\s*[\u4e00-\u9fa5]/g;
+    const map = { ',':'，', '.':'。', ';':'；', ':':'：', '!':'！', '?':'？' };
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const punc = m[1];
+      issues.push({ index: m.index, length: m[0].length, snippet: m[0], fix: m[0].replace(punc, map[punc]) });
+    }
+    return issues;
+  }
+};
+
+/* 把旧版「function 字符串」格式的内置规则迁移成 builtin 类型，规避 CSP eval 限制 */
+function migrateRules(rules) {
+  if (!Array.isArray(rules)) return rules;
+  return rules.map(r => {
+    if (r && r.type === 'function' && BUILTIN_FNS[r.id]) {
+      const clone = { ...r, type: 'builtin', builtin: r.id };
+      delete clone.body;
+      return clone;
+    }
+    return r;
+  });
+}
+
+/* ============================================
    持久化
    ============================================ */
 function loadState() {
@@ -693,9 +734,10 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const obj = JSON.parse(raw);
-      state.rules = obj.rules && obj.rules.length ? obj.rules : JSON.parse(JSON.stringify(DEFAULT_RULES));
+      state.rules = obj.rules && obj.rules.length ? migrateRules(obj.rules) : JSON.parse(JSON.stringify(DEFAULT_RULES));
       state.syncUrl = obj.syncUrl || '';
       state.lastSync = obj.lastSync || null;
+      saveState();   // 把迁移结果写回，下次不再迁移
       return;
     }
   } catch (e) { console.warn('载入状态失败', e); }
@@ -752,9 +794,21 @@ function runRule(rule, text) {
       }
       return issues;
     }
+    if (rule.type === 'builtin') {
+      const fn = BUILTIN_FNS[rule.builtin || rule.id];
+      if (!fn) return [];
+      const result = fn(text);
+      return Array.isArray(result) ? result : [];
+    }
     if (rule.type === 'function') {
-      // eslint-disable-next-line no-new-func
-      const fn = new Function('text', rule.body);
+      // 自定义 JS 函数需要 eval，部分环境（GitHub Pages / 预览器）CSP 会禁用
+      let fn;
+      try {
+        // eslint-disable-next-line no-new-func
+        fn = new Function('text', rule.body);
+      } catch (evalErr) {
+        return [{ index: 0, length: 0, snippet: '[当前环境不支持自定义函数]', fix: '规则「' + rule.name + '」是 JS 函数类型，当前页面的安全策略(CSP)禁止了动态执行。请把它改写成「关键词/正则」类型，或在本地直接打开 HTML 使用。' }];
+      }
       const result = fn(text);
       return Array.isArray(result) ? result : [];
     }
@@ -777,11 +831,34 @@ function runChecks() {
     runRule(r, text).forEach(i => allIssues.push({ ...i, ruleId: r.id, ruleName: r.name, level: r.level }));
   });
   allIssues.sort((a, b) => a.index - b.index);
-  renderResults(allIssues, text.length);
+  window._lastIssues = allIssues;   // 供点击跳转使用
+  renderResults(allIssues, text);
 }
 
-function renderResults(issues, textLen) {
+/* 把字符 index 转成 行号:列号（行、列都从 1 开始） */
+function indexToLineCol(text, index) {
+  const before = text.slice(0, index);
+  const line = (before.match(/\n/g) || []).length + 1;
+  const lastNL = before.lastIndexOf('\n');
+  const col = index - lastNL;   // lastNL=-1 时正好得到 index+1
+  return { line, col };
+}
+
+/* 取错误周围的上下文，错误部分用 mark 高亮 */
+function buildContext(text, index, length, pad = 12) {
+  const start = Math.max(0, index - pad);
+  const end = Math.min(text.length, index + length + pad);
+  const pre = text.slice(start, index).replace(/\n/g, '⏎');
+  const hit = text.slice(index, index + length).replace(/\n/g, '⏎');
+  const post = text.slice(index + length, end).replace(/\n/g, '⏎');
+  const lead = start > 0 ? '…' : '';
+  const tail = end < text.length ? '…' : '';
+  return `${lead}${escapeHTML(pre)}<mark>${escapeHTML(hit) || '∅'}</mark>${escapeHTML(post)}${tail}`;
+}
+
+function renderResults(issues, text) {
   const box = document.getElementById('results');
+  const textLen = text.length;
   const counts = { danger: 0, warn: 0, info: 0 };
   issues.forEach(i => counts[i.level] = (counts[i.level] || 0) + 1);
 
@@ -795,23 +872,48 @@ function renderResults(issues, textLen) {
   if (issues.length === 0) {
     html += `<div class="results-empty">✅ 本地规则未发现问题，记得用 AI prompt 再做一遍语义检查。</div>`;
   } else {
+    html += `<div style="padding:6px 14px 0;font-size:11px;color:var(--muted);">💡 点任意一条，可在左侧原文中自动定位并选中</div>`;
     html += `<div class="issue-list">`;
-    issues.forEach(i => {
+    issues.forEach((i, idx) => {
       const tagText = i.level === 'danger' ? '严重' : (i.level === 'warn' ? '警告' : '提示');
+      const { line, col } = indexToLineCol(text, i.index);
+      const ctx = i.length > 0 ? buildContext(text, i.index, i.length) : escapeHTML(i.snippet);
       html += `
-        <div class="issue">
+        <div class="issue" data-issue="${idx}" title="点击在原文中定位">
           <div class="issue-head">
             <span class="issue-tag ${i.level}">${tagText}</span>
             <span class="issue-rule">${escapeHTML(i.ruleName)}</span>
-            <span style="margin-left:auto;color:var(--muted);font-size:11px;">位置 ${i.index}</span>
+            <span class="issue-loc">第 ${line} 行 · 第 ${col} 字</span>
           </div>
-          <div class="issue-snippet"><mark>${escapeHTML(i.snippet)}</mark></div>
+          <div class="issue-snippet">${ctx}</div>
           <div class="issue-fix">建议：<b>${escapeHTML(i.fix)}</b></div>
         </div>`;
     });
     html += `</div>`;
   }
   box.innerHTML = html;
+
+  // 绑定点击跳转
+  box.querySelectorAll('[data-issue]').forEach(el => {
+    el.addEventListener('click', () => {
+      const issue = window._lastIssues[+el.dataset.issue];
+      if (issue) jumpToText(issue.index, issue.length);
+    });
+  });
+}
+
+/* 在左侧 textarea 中定位并选中错误片段 */
+function jumpToText(index, length) {
+  const ta = document.getElementById('article');
+  ta.focus();
+  const end = length > 0 ? index + length : index;
+  try { ta.setSelectionRange(index, end); } catch (e) {}
+  // 粗略滚动到对应位置：按行比例估算
+  const text = ta.value;
+  const line = (text.slice(0, index).match(/\n/g) || []).length;
+  const totalLines = (text.match(/\n/g) || []).length + 1;
+  const ratio = totalLines > 1 ? line / totalLines : 0;
+  ta.scrollTop = Math.max(0, ratio * ta.scrollHeight - ta.clientHeight / 2);
 }
 
 function escapeHTML(s) {
@@ -837,7 +939,7 @@ function renderRuleList() {
   }
   let html = '';
   state.rules.forEach(r => {
-    const typeLabel = { 'keyword-list':'关键词','keyword-map':'错别字对照','regex':'正则','function':'JS函数' }[r.type] || r.type;
+    const typeLabel = { 'keyword-list':'关键词','keyword-map':'错别字对照','regex':'正则','function':'JS函数','builtin':'内置' }[r.type] || r.type;
     html += `
       <div class="rule-row">
         <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} data-toggle="${r.id}"><span></span></label>
@@ -880,6 +982,10 @@ function openEditRule(id) {
   let r;
   if (id) {
     r = state.rules.find(x => x.id === id);
+    if (r && r.type === 'builtin') {
+      toast('内置规则逻辑已写死，只能开关启用/停用，无法在线编辑');
+      return;
+    }
     document.getElementById('editRuleTitle').textContent = '编辑规则';
   } else {
     r = { name:'', desc:'', group:'自定义', level:'warn', type:'keyword-list', words:[], fix:'' };
@@ -1010,7 +1116,7 @@ function exportRules() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `公众号纠错规则_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `火眼晶晶_规则备份_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -1066,7 +1172,7 @@ ${text}`;
 /* ============================================
    书签栏小工具
    ============================================ */
-const BOOKMARKLET = `javascript:(function(){var sels=['#js_content','.rich_media_content','#page-content','[data-role="article"]'];var content='';for(var i=0;i<sels.length;i++){var el=document.querySelector(sels[i]);if(el){content=el.innerText;break;}}var titleEl=document.querySelector('#activity-name')||document.querySelector('.rich_media_title')||document.querySelector('h1');var title=titleEl?titleEl.innerText.trim():'';var full=(title?title+'\\n\\n':'')+content;if(!full.trim()){alert('未找到正文，可能不是公众号预览页');return;}navigator.clipboard.writeText(full).then(function(){alert('已复制 '+full.length+' 字到剪贴板，回到纠错工具粘贴即可');},function(){prompt('自动复制失败，请手动复制下面文本:',full);});})();`;
+const BOOKMARKLET = `javascript:(function(){var sels=['#js_content','.rich_media_content','#page-content','[data-role="article"]'];var content='';for(var i=0;i<sels.length;i++){var el=document.querySelector(sels[i]);if(el){content=el.innerText;break;}}var titleEl=document.querySelector('#activity-name')||document.querySelector('.rich_media_title')||document.querySelector('h1');var title=titleEl?titleEl.innerText.trim():'';var full=(title?title+'\\n\\n':'')+content;if(!full.trim()){alert('未找到正文，可能不是公众号预览页');return;}navigator.clipboard.writeText(full).then(function(){alert('已复制 '+full.length+' 字到剪贴板，回到火眼晶晶粘贴即可');},function(){prompt('自动复制失败，请手动复制下面文本:',full);});})();`;
 
 function openBookmarkModal() {
   const link = document.getElementById('bookmarkletLink');
@@ -1107,7 +1213,7 @@ function exportReport() {
   if (!text.trim()) { toast('请先粘贴文章'); return; }
   const html = document.getElementById('results').innerHTML;
   const blob = new Blob([
-    `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>公众号检查报告</title>
+    `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>火眼晶晶 · 检查报告</title>
     <style>body{font-family:-apple-system,sans-serif;max-width:780px;margin:40px auto;padding:0 20px;color:#1f2328;}
     .issue{padding:10px 0;border-bottom:1px solid #eee;}
     .issue-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:#f0f0f0;}
@@ -1120,7 +1226,7 @@ function exportReport() {
     .pill{display:inline-block;padding:3px 10px;margin-right:6px;border-radius:999px;background:#f0f0f0;font-size:12px;}
     .pill.danger{background:#fee2e2;color:#dc2626;} .pill.warn{background:#fef3c7;color:#d97706;} .pill.info{background:#dbeafe;color:#2f6feb;} .pill.ok{background:#dcfce7;color:#15803d;}
     </style></head><body>
-    <h1>公众号文章检查报告</h1>
+    <h1>👁️ 火眼晶晶 · 文章检查报告</h1>
     <p style="color:#888;font-size:12px;">生成时间：${new Date().toLocaleString('zh-CN')}</p>
     ${html}
     </body></html>`
@@ -1128,7 +1234,7 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `公众号检查报告_${new Date().toISOString().slice(0,10)}.html`;
+  a.download = `火眼晶晶_检查报告_${new Date().toISOString().slice(0,10)}.html`;
   a.click();
   URL.revokeObjectURL(url);
 }
